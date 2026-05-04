@@ -1,47 +1,31 @@
+# load_beth.py
 import pandas as pd
-import numpy as np
-import glob #for working on many csv files at once
+import glob
 import os
 from sklearn.preprocessing import LabelEncoder
+import config
 
-path = './dataset'
-all_files = glob.glob(os.path.join(path, "*.csv"))
+def run_load_data():
+    all_files = glob.glob(os.path.join(config.RAW_DATA_PATH, "*.csv"))
+    
+    ind_df_list = []
+    for filename in all_files:
+        df = pd.read_csv(filename, header=0)
+        df['source_file'] = os.path.basename(filename)
+        ind_df_list.append(df)
 
-ind_df_list = []
+    beth_df = pd.concat(ind_df_list, axis=0, ignore_index=True)
 
-for filename in all_files:
-    df = pd.read_csv(filename, header=0)
-    #Just to know from which csv file the column came from:
-    df['source_file'] = os.path.basename(filename)
-    ind_df_list.append(df)
+    # NEW: Encode text columns to numbers (e.g., "systemd" -> 1, "bash" -> 2)
+    le = LabelEncoder()
+    for cat_col in config.CATEGORICAL_FEATURES:
+        # Fill missing values to avoid errors
+        beth_df[cat_col] = beth_df[cat_col].fillna('unknown').astype(str)
+        beth_df[cat_col] = le.fit_transform(beth_df[cat_col])
 
-#Concatenate all the dfs
-beth_df = pd.concat(ind_df_list, axis=0, ignore_index=True)
+    # Save the cleaned dataframe so train_model.py can use it
+    beth_df.to_csv(f"{config.DATA_DIR}/beth_clean.csv", index=False)
+    print(f"Loaded and encoded {len(beth_df)} rows. Saved to beth_clean.csv")
 
-print(beth_df.columns.tolist()) #Key Columns in BETH
-
-print("Total rows:", len(beth_df))
-print("Normal (evil=0):", (beth_df['evil'] == 0).sum())
-print("Anomalous (evil=1):", (beth_df['evil'] == 1).sum())
-print(df.head())
-
-FEATURES = ['processName', 'eventName', 'eventId', 'argsNum', 'returnValue', 'args', 'userId',
-            'SourceIP', 'DestinationIP', 'DnsQuery',
-             'Timestamp', 'hostName', 'SensorId', 'sus', 'evil' ]
-
-df_clean = beth_df[FEATURES].copy()
-
-text_columns = ['processName', 'eventName', 'args', 'hostName', 'SensorId', 'SourceIP', 'DestinationIP', 'DnsQuery', 'Timestamp']
-df_clean[text_columns] = df_clean[text_columns].fillna('None')
-
-numeric_columns = ['eventId', 'argsNum', 'returnValue', 'userId']
-df_clean[numeric_columns] = df_clean[numeric_columns].fillna(-1)
-
-le = LabelEncoder()
-for col in text_columns:
-    df_clean[col] = le.fit_transform(df_clean[col].astype(str))
-
-normal_df = df_clean[df_clean['evil'] == 0].copy()
-anomalous_df = df_clean[df_clean['evil'] == 1].copy()
-
-print(f"Features ready for ML and Visualization: {FEATURES}")
+if __name__ == "__main__":
+    run_load_data()
