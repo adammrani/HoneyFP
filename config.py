@@ -19,6 +19,8 @@ CATEGORICAL_FEATURES = ['processName']
 # Combined final features
 FEATURES = NUMERIC_FEATURES + CATEGORICAL_FEATURES
 
-# --- OLLAMA AI SETTINGS ---
-OLLAMA_URL = "http://localhost:11434/api/generate"
+import subprocess
+# This command finds your Windows host IP automatically from inside Kali
+host_ip = subprocess.check_output("grep nameserver /etc/resolv.conf | cut -d' ' -f2", shell=True).decode().strip()
+OLLAMA_URL = f"http://{host_ip}:11434/api/generate"
 OLLAMA_MODEL = "honeypot-analyst"
